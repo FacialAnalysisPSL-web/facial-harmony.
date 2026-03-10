@@ -1,118 +1,160 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Facial Harmony Calculator</title>
+<title>AI Facial Harmony Analyzer</title>
+
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+
 <style>
+
 body{
-font-family: Arial;
 background:#0f172a;
 color:white;
+font-family:Arial;
 text-align:center;
 padding:40px;
 }
 
-.container{
-max-width:700px;
-margin:auto;
-background:#1e293b;
-padding:25px;
+video{
 border-radius:10px;
-}
-
-input{
-width:100%;
-padding:8px;
-margin:5px 0;
-border-radius:6px;
-border:none;
+margin-top:20px;
 }
 
 button{
-padding:10px 20px;
-background:#22c55e;
+padding:12px 20px;
+font-size:16px;
 border:none;
 border-radius:8px;
+background:#22c55e;
 color:white;
-font-size:16px;
 cursor:pointer;
-margin-top:10px;
+margin-top:15px;
 }
 
 .result{
 font-size:28px;
-margin-top:20px;
+margin-top:25px;
 }
+
 </style>
+
 </head>
 
 <body>
 
-<div class="container">
+<h1>AI Facial Harmony Calculator</h1>
 
-<h1>Facial Harmony Calculator</h1>
+<p>Turn on camera and analyze facial harmony</p>
 
-<p>Enter your facial ratios</p>
+<video id="video" width="480" height="360" autoplay muted></video>
 
-<input id="esr" placeholder="ESR (0.443 - 0.477)">
-<input id="facialThirds" placeholder="Lower Third (%)">
-<input id="neckWidth" placeholder="Neck Width (%)">
-<input id="midface" placeholder="Midface Ratio">
-<input id="jawAngle" placeholder="Jaw Frontal Angle">
-<input id="bigonial" placeholder="Bigonial Width (%)">
-<input id="eyebrowTilt" placeholder="Eyebrow Tilt (degrees)">
-<input id="lipRatio" placeholder="Lower/Upper Lip Ratio">
+<br>
 
-<button onclick="calculate()">Calculate Harmony</button>
+<button onclick="analyze()">Analyze Face</button>
 
 <div class="result" id="result"></div>
 
-</div>
-
 <script>
 
-const MAX_SCORE = 333.71;
-const WORST_SCORE = -337.71;
+const MAX_SCORE = 333.71
+const WORST_SCORE = -337.71
 
-function scoreRange(value, min, max, goodScore, badScore){
+async function startCamera(){
 
-if(value >= min && value <= max){
-return goodScore;
-}
+const stream = await navigator.mediaDevices.getUserMedia({video:true})
 
-let distance = Math.min(Math.abs(value-min), Math.abs(value-max));
-
-return goodScore - distance*badScore;
-}
-
-function calculate(){
-
-let score = 0;
-
-let esr = parseFloat(document.getElementById("esr").value);
-let thirds = parseFloat(document.getElementById("facialThirds").value);
-let neck = parseFloat(document.getElementById("neckWidth").value);
-let mid = parseFloat(document.getElementById("midface").value);
-let jaw = parseFloat(document.getElementById("jawAngle").value);
-let bigonial = parseFloat(document.getElementById("bigonial").value);
-let brow = parseFloat(document.getElementById("eyebrowTilt").value);
-let lips = parseFloat(document.getElementById("lipRatio").value);
-
-score += scoreRange(esr,0.443,0.477,25.59,10);
-score += scoreRange(thirds,30.6,34,18.3,5);
-score += scoreRange(neck,90,100,19.06,5);
-score += scoreRange(mid,0.95,1.01,11.9,3);
-score += scoreRange(jaw,84.5,95,9.15,2);
-score += scoreRange(bigonial,85.5,92,20,5);
-score += scoreRange(brow,5,13,10,3);
-score += scoreRange(lips,1.4,2,10,3);
-
-let harmony = ((score - WORST_SCORE) / (MAX_SCORE - WORST_SCORE)) * 100;
-
-document.getElementById("result").innerHTML =
-"Harmony Score: " + harmony.toFixed(2) + "%";
+document.getElementById("video").srcObject = stream
 
 }
+
+async function loadModels(){
+
+await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/weights')
+await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/weights')
+
+}
+
+function distance(a,b){
+
+return Math.sqrt(
+Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2)
+)
+
+}
+
+function scoreRange(value,min,max,good,bad){
+
+if(value>=min && value<=max){
+
+return good
+
+}
+
+let d=Math.min(Math.abs(value-min),Math.abs(value-max))
+
+return good-(d*bad)
+
+}
+
+async function analyze(){
+
+const video=document.getElementById("video")
+
+const detection=await faceapi.detectSingleFace(
+video,
+new faceapi.TinyFaceDetectorOptions()
+).withFaceLandmarks()
+
+if(!detection){
+
+alert("No face detected")
+
+return
+
+}
+
+const points=detection.landmarks.positions
+
+let score=0
+
+let leftEye=points[36]
+let rightEye=points[45]
+
+let jawLeft=points[0]
+let jawRight=points[16]
+
+let nose=points[30]
+
+let chin=points[8]
+
+let lipTop=points[51]
+let lipBottom=points[57]
+
+let eyeDistance=distance(leftEye,rightEye)
+let jawWidth=distance(jawLeft,jawRight)
+
+let esr=eyeDistance/jawWidth
+
+score+=scoreRange(esr,0.44,0.48,25,10)
+
+let midface=distance(nose,lipTop)/distance(nose,chin)
+
+score+=scoreRange(midface,0.95,1.01,12,4)
+
+let lipRatio=distance(lipBottom,chin)/distance(lipTop,lipBottom)
+
+score+=scoreRange(lipRatio,1.4,2,10,3)
+
+let harmony=((score-WORST_SCORE)/(MAX_SCORE-WORST_SCORE))*100
+
+document.getElementById("result").innerHTML=
+
+"Harmony Score: "+harmony.toFixed(2)+"%"
+
+}
+
+loadModels().then(startCamera)
 
 </script>
 
