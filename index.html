@@ -1,143 +1,116 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 <head>
-
 <meta charset="UTF-8">
-<title>Facial Harmony Analyzer</title>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
+<title>Facial Harmony Calculator</title>
 <style>
-
 body{
-background:#0d0d0d;
+font-family: Arial;
+background:#0f172a;
 color:white;
-font-family:Arial;
 text-align:center;
+padding:40px;
 }
 
-canvas{
-border:2px solid white;
-margin-top:20px;
-max-width:90%;
+.container{
+max-width:700px;
+margin:auto;
+background:#1e293b;
+padding:25px;
+border-radius:10px;
 }
 
 input{
-margin-top:20px;
+width:100%;
+padding:8px;
+margin:5px 0;
+border-radius:6px;
+border:none;
+}
+
+button{
+padding:10px 20px;
+background:#22c55e;
+border:none;
+border-radius:8px;
+color:white;
 font-size:16px;
+cursor:pointer;
+margin-top:10px;
 }
 
-#result{
+.result{
+font-size:28px;
 margin-top:20px;
-font-size:22px;
 }
-
 </style>
-
 </head>
 
 <body>
 
-<h1>Facial Harmony Analyzer</h1>
+<div class="container">
 
-<p>Sube una foto frontal del rostro</p>
+<h1>Facial Harmony Calculator</h1>
 
-<input type="file" id="upload" accept="image/*">
+<p>Enter your facial ratios</p>
 
-<br>
+<input id="esr" placeholder="ESR (0.443 - 0.477)">
+<input id="facialThirds" placeholder="Lower Third (%)">
+<input id="neckWidth" placeholder="Neck Width (%)">
+<input id="midface" placeholder="Midface Ratio">
+<input id="jawAngle" placeholder="Jaw Frontal Angle">
+<input id="bigonial" placeholder="Bigonial Width (%)">
+<input id="eyebrowTilt" placeholder="Eyebrow Tilt (degrees)">
+<input id="lipRatio" placeholder="Lower/Upper Lip Ratio">
 
-<canvas id="canvas"></canvas>
+<button onclick="calculate()">Calculate Harmony</button>
 
-<div id="result"></div>
+<div class="result" id="result"></div>
+
+</div>
 
 <script>
 
-const upload = document.getElementById("upload")
-const canvas = document.getElementById("canvas")
-const ctx = canvas.getContext("2d")
+const MAX_SCORE = 333.71;
+const WORST_SCORE = -337.71;
 
-const faceMesh = new FaceMesh({
-locateFile:(file)=>{
-return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-}
-})
+function scoreRange(value, min, max, goodScore, badScore){
 
-faceMesh.setOptions({
-maxNumFaces:1,
-refineLandmarks:true,
-minDetectionConfidence:0.5,
-minTrackingConfidence:0.5
-})
-
-faceMesh.onResults(onResults)
-
-upload.addEventListener("change",function(e){
-
-const file = e.target.files[0]
-
-if(!file) return
-
-const img = new Image()
-
-img.onload = async function(){
-
-canvas.width = img.width
-canvas.height = img.height
-
-ctx.drawImage(img,0,0)
-
-await faceMesh.send({image:img})
-
+if(value >= min && value <= max){
+return goodScore;
 }
 
-img.src = URL.createObjectURL(file)
+let distance = Math.min(Math.abs(value-min), Math.abs(value-max));
 
-})
-
-function distance(a,b){
-
-return Math.sqrt(
-Math.pow(a.x-b.x,2)+
-Math.pow(a.y-b.y,2)
-)
-
+return goodScore - distance*badScore;
 }
 
-function onResults(results){
+function calculate(){
 
-if(results.multiFaceLandmarks.length===0){
+let score = 0;
 
-document.getElementById("result").innerHTML="No se detectó un rostro"
-return
+let esr = parseFloat(document.getElementById("esr").value);
+let thirds = parseFloat(document.getElementById("facialThirds").value);
+let neck = parseFloat(document.getElementById("neckWidth").value);
+let mid = parseFloat(document.getElementById("midface").value);
+let jaw = parseFloat(document.getElementById("jawAngle").value);
+let bigonial = parseFloat(document.getElementById("bigonial").value);
+let brow = parseFloat(document.getElementById("eyebrowTilt").value);
+let lips = parseFloat(document.getElementById("lipRatio").value);
 
-}
+score += scoreRange(esr,0.443,0.477,25.59,10);
+score += scoreRange(thirds,30.6,34,18.3,5);
+score += scoreRange(neck,90,100,19.06,5);
+score += scoreRange(mid,0.95,1.01,11.9,3);
+score += scoreRange(jaw,84.5,95,9.15,2);
+score += scoreRange(bigonial,85.5,92,20,5);
+score += scoreRange(brow,5,13,10,3);
+score += scoreRange(lips,1.4,2,10,3);
 
-const landmarks = results.multiFaceLandmarks[0]
-
-for(let p of landmarks){
-
-ctx.beginPath()
-ctx.arc(p.x*canvas.width,p.y*canvas.height,1,0,2*Math.PI)
-ctx.fillStyle="lime"
-ctx.fill()
-
-}
-
-let leftCheek = landmarks[234]
-let rightCheek = landmarks[454]
-let chin = landmarks[152]
-let forehead = landmarks[10]
-
-let faceWidth = distance(leftCheek,rightCheek)
-let faceHeight = distance(forehead,chin)
-
-let FWHR = faceWidth/faceHeight
+let harmony = ((score - WORST_SCORE) / (MAX_SCORE - WORST_SCORE)) * 100;
 
 document.getElementById("result").innerHTML =
-"FWHR Ratio: " + FWHR.toFixed(2)
+"Harmony Score: " + harmony.toFixed(2) + "%";
 
 }
 
