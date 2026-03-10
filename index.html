@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>AI Facial Harmony Analyzer</title>
+<title>Facial Harmony Analyzer</title>
 
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
 
@@ -16,13 +16,18 @@ text-align:center;
 padding:40px;
 }
 
-video{
-border-radius:10px;
+.container{
+max-width:700px;
+margin:auto;
+}
+
+canvas{
 margin-top:20px;
+border-radius:10px;
 }
 
 button{
-padding:12px 20px;
+padding:10px 20px;
 font-size:16px;
 border:none;
 border-radius:8px;
@@ -38,35 +43,30 @@ margin-top:25px;
 }
 
 </style>
-
 </head>
 
 <body>
 
-<h1>AI Facial Harmony Calculator</h1>
+<div class="container">
 
-<p>Turn on camera and analyze facial harmony</p>
+<h1>Facial Harmony Calculator</h1>
 
-<video id="video" width="480" height="360" autoplay muted></video>
+<p>Upload a face photo</p>
+
+<input type="file" id="upload">
 
 <br>
 
-<button onclick="analyze()">Analyze Face</button>
+<canvas id="canvas"></canvas>
 
 <div class="result" id="result"></div>
+
+</div>
 
 <script>
 
 const MAX_SCORE = 333.71
 const WORST_SCORE = -337.71
-
-async function startCamera(){
-
-const stream = await navigator.mediaDevices.getUserMedia({video:true})
-
-document.getElementById("video").srcObject = stream
-
-}
 
 async function loadModels(){
 
@@ -86,9 +86,7 @@ Math.pow(a.x-b.x,2)+Math.pow(a.y-b.y,2)
 function scoreRange(value,min,max,good,bad){
 
 if(value>=min && value<=max){
-
 return good
-
 }
 
 let d=Math.min(Math.abs(value-min),Math.abs(value-max))
@@ -97,37 +95,47 @@ return good-(d*bad)
 
 }
 
-async function analyze(){
+document.getElementById("upload").addEventListener("change", async function(){
 
-const video=document.getElementById("video")
+const file=this.files[0]
+
+if(!file)return
+
+const img=new Image()
+
+img.src=URL.createObjectURL(file)
+
+img.onload=async function(){
+
+const canvas=document.getElementById("canvas")
+
+canvas.width=img.width
+canvas.height=img.height
+
+const ctx=canvas.getContext("2d")
+
+ctx.drawImage(img,0,0)
 
 const detection=await faceapi.detectSingleFace(
-video,
+img,
 new faceapi.TinyFaceDetectorOptions()
 ).withFaceLandmarks()
 
 if(!detection){
 
 alert("No face detected")
-
 return
 
 }
 
 const points=detection.landmarks.positions
 
-let score=0
-
 let leftEye=points[36]
 let rightEye=points[45]
-
 let jawLeft=points[0]
 let jawRight=points[16]
-
 let nose=points[30]
-
 let chin=points[8]
-
 let lipTop=points[51]
 let lipBottom=points[57]
 
@@ -135,6 +143,8 @@ let eyeDistance=distance(leftEye,rightEye)
 let jawWidth=distance(jawLeft,jawRight)
 
 let esr=eyeDistance/jawWidth
+
+let score=0
 
 score+=scoreRange(esr,0.44,0.48,25,10)
 
@@ -154,7 +164,9 @@ document.getElementById("result").innerHTML=
 
 }
 
-loadModels().then(startCamera)
+})
+
+loadModels()
 
 </script>
 
